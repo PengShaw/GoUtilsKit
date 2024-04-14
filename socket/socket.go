@@ -9,6 +9,7 @@ import (
 
 // RunSocketClient builds a socket connection, and send data to server
 func RunSocketClient(network, address string, ch <-chan []byte) {
+	logger.Debugf("run socket client to %s:%s", network, address)
 	conn, err := net.Dial(network, address)
 	if err != nil {
 		logger.Errorf("connect to %s:%s failed: %s", network, address, err)
@@ -24,11 +25,14 @@ func RunSocketClient(network, address string, ch <-chan []byte) {
 			logger.Errorf("send data to %s:%s failed: %s", network, address, err)
 			logger.Debugf("send data to %s:%s failed: %s: %s", network, address, err, data)
 		}
+		logger.Infof("send data to %s:%s success", network, address)
+		logger.Debugf("send data to %s:%s success: %s", network, address, data)
 	}
 }
 
 // RunUDPServer listens an udp socket, and send received data to channel
 func RunUDPServer(address string, ch chan<- []byte) {
+	logger.Debugf("run udp server at %s", address)
 	conn, err := net.ListenPacket("udp", address)
 	if err != nil {
 		logger.Errorf("listen udp:%s failed: %s", address, err)
@@ -52,17 +56,18 @@ func RunUDPServer(address string, ch chan<- []byte) {
 
 // RunTCPServer listens an tcp socket, and send received data to channel
 func RunTCPServer(address string, ch chan<- []byte) {
+	logger.Debugf("run tcp server at %s", address)
 	l, err := net.Listen("tcp", address)
 	if err != nil {
 		logger.Errorf("listen tcp:%s failed: %s", address, err)
 		return
 	}
 	defer l.Close()
-	logger.Debug("tcp listen build")
+	logger.Infof("listen: <%s>", l.Addr().String())
 
 	for {
 		conn, err := l.Accept()
-		logger.Infof("listen: <%s>", l.Addr().String())
+		logger.Infof("connected from: <%s>", conn.RemoteAddr().String())
 		if err != nil {
 			logger.Errorf("connect tcp:%s failed: %s", address, err)
 			continue
@@ -90,17 +95,18 @@ func RunTCPServer(address string, ch chan<- []byte) {
 
 // RunUnixServer listens an unix domain socket, and send received data to channel
 func RunUnixServer(address string, ch chan<- []byte) {
+	logger.Debugf("run udp server at %s", address)
 	l, err := net.Listen("unix", address)
 	if err != nil {
 		logger.Errorf("listen unix:%s failed: %s", address, err)
 		return
 	}
 	defer l.Close()
-	logger.Debug("unix listen build")
+	logger.Infof("listen: <%s>", l.Addr().String())
 
 	for {
 		conn, err := l.Accept()
-		logger.Infof("listen: <%s>", l.Addr().String())
+		logger.Infof("connected: <%s>", l.Addr().String())
 		if err != nil {
 			logger.Errorf("connect unix:%s failed: %s", address, err)
 			continue
