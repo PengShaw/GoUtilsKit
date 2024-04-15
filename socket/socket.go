@@ -31,7 +31,7 @@ func RunSocketClient(network, address string, ch <-chan []byte) {
 }
 
 // RunUDPServer listens an udp socket, and send received data to channel
-func RunUDPServer(address string, ch chan<- []byte) {
+func RunUDPServer(address string, mtu int, ch chan<- []byte) {
 	logger.Debugf("run udp server at %s", address)
 	conn, err := net.ListenPacket("udp", address)
 	if err != nil {
@@ -41,21 +41,22 @@ func RunUDPServer(address string, ch chan<- []byte) {
 	defer conn.Close()
 	logger.Infof("listen: <%s>", conn.LocalAddr().String())
 
-	buf := make([]byte, 1024)
 	for {
-		_, addr, err := conn.ReadFrom(buf)
+		// must be in for loop, so channel will get the same slice
+		buf := make([]byte, mtu)
+		n, addr, err := conn.ReadFrom(buf)
 		if err != nil {
 			logger.Errorf("listen udp:%s data failed: %s", address, err)
 			continue
 		}
 		logger.Infof("received data from %s", addr.String())
 		logger.Debugf("received data from %s: %s", addr.String(), buf)
-		ch <- buf
+		ch <- buf[:n]
 	}
 }
 
 // RunTCPServer listens an tcp socket, and send received data to channel
-func RunTCPServer(address string, ch chan<- []byte) {
+func RunTCPServer(address string, mtu int, ch chan<- []byte) {
 	logger.Debugf("run tcp server at %s", address)
 	l, err := net.Listen("tcp", address)
 	if err != nil {
@@ -73,11 +74,11 @@ func RunTCPServer(address string, ch chan<- []byte) {
 			continue
 		}
 
-		go func(c net.Conn, ch chan<- []byte) {
+		go func(c net.Conn, mtu int, ch chan<- []byte) {
 			defer c.Close()
 			for {
-				buf := make([]byte, 1024)
-				_, err := c.Read(buf)
+				buf := make([]byte, mtu)
+				n, err := c.Read(buf)
 				if err != nil && err != io.EOF {
 					logger.Errorf("listen tcp:%s data failed: %s", address, err)
 					break
@@ -87,14 +88,14 @@ func RunTCPServer(address string, ch chan<- []byte) {
 				}
 				logger.Infof("received data from %s", c.RemoteAddr().String())
 				logger.Debugf("received data from %s: %s", c.RemoteAddr().String(), buf)
-				ch <- buf
+				ch <- buf[:n]
 			}
-		}(conn, ch)
+		}(conn, mtu, ch)
 	}
 }
 
 // RunUnixServer listens an unix domain socket, and send received data to channel
-func RunUnixServer(address string, ch chan<- []byte) {
+func RunUnixServer(address string, dataLength int, ch chan<- []byte) {
 	logger.Debugf("run udp server at %s", address)
 	l, err := net.Listen("unix", address)
 	if err != nil {
@@ -112,11 +113,11 @@ func RunUnixServer(address string, ch chan<- []byte) {
 			continue
 		}
 
-		go func(c net.Conn, ch chan<- []byte) {
+		go func(c net.Conn, dataLength int, ch chan<- []byte) {
 			defer c.Close()
 			for {
-				buf := make([]byte, 1024)
-				_, err := c.Read(buf)
+				buf := make([]byte, dataLength)
+				n, err := c.Read(buf)
 				if err != nil && err != io.EOF {
 					logger.Errorf("listen unix:%s data failed: %s", address, err)
 					break
@@ -126,8 +127,8 @@ func RunUnixServer(address string, ch chan<- []byte) {
 				}
 				logger.Infof("received data from %s", c.LocalAddr().String())
 				logger.Debugf("received data from %s: %s", c.LocalAddr().String(), buf)
-				ch <- buf
+				ch <- buf[:n]
 			}
-		}(conn, ch)
+		}(conn, dataLength, ch)
 	}
 }
